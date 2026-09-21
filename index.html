@@ -1,0 +1,2109 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ثبت ورود و خروج بار</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<style>
+  :root {
+    --bg: #14171c;
+    --surface: #1c2129;
+    --surface-2: #242b35;
+    --border: #323b48;
+    --text: #eceadf;
+    --muted: #d7dbe4;
+    --amber: #f0a202;
+    --amber-dim: #7a5714;
+    --in: #4caf7d;
+    --out: #e2574c;
+  }
+
+  * { box-sizing: border-box; }
+
+  #wh-root {
+    font-family: 'Vazirmatn', sans-serif;
+    direction: rtl;
+    background: var(--bg);
+    color: var(--text);
+    padding: 22px;
+    border-radius: 4px;
+    min-height: 100%;
+  }
+
+  .wh-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 3px solid var(--amber);
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+  }
+
+  .wh-title {
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: -0.3px;
+  }
+
+  .wh-title span {
+    color: var(--amber);
+  }
+
+  .wh-stat {
+    text-align: left;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .wh-stat b {
+    display: block;
+    font-size: 26px;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .wh-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .wh-form-row {
+    display: grid;
+    grid-template-columns: 0.85fr 1fr 1fr 1fr 1fr 0.7fr 1fr 1fr 0.9fr auto;
+    gap: 10px;
+    align-items: end;
+  }
+
+  @media (max-width: 720px) {
+    .wh-form-row { grid-template-columns: 1fr 1fr; }
+    .wh-submit { grid-column: 1 / -1; }
+  }
+  @media (max-width: 480px) {
+    .wh-form-row { grid-template-columns: 1fr; }
+  }
+
+  .wh-field label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  .wh-field input, .wh-field select {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 9px 10px;
+    font-family: inherit;
+    font-size: 14px;
+  }
+
+  .wh-field input:focus, .wh-field select:focus {
+    outline: none;
+    border-color: var(--amber);
+  }
+
+  .wh-field input::placeholder, .wh-search::placeholder {
+    color: var(--muted);
+    opacity: 0.75;
+  }
+
+  .wh-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .wh-toggle button {
+    flex: 1;
+    padding: 9px 6px;
+    border: none;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .wh-toggle button.active[data-dir="in"] { background: var(--in); color: #0d1f16; }
+  .wh-toggle button.active[data-dir="out"] { background: var(--out); color: #2a0e0b; }
+
+  .wh-submit {
+    background: var(--amber);
+    color: #241a02;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .wh-submit:hover { filter: brightness(1.08); }
+  .wh-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+  .wh-toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .wh-search {
+    flex: 1;
+    min-width: 180px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+
+  .wh-search:focus { outline: none; border-color: var(--amber); }
+
+  .wh-export {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 4px;
+    padding: 9px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .wh-export:hover { color: var(--text); border-color: var(--amber); }
+
+  .wh-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+  thead th {
+    text-align: right;
+    padding: 10px 12px;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: #ffffff;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-2); }
+
+  .wh-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .wh-chip.in { background: rgba(76,175,125,.15); color: var(--in); }
+  .wh-chip.out { background: rgba(226,87,76,.15); color: var(--out); }
+
+  .wh-plate {
+    font-weight: 700;
+    letter-spacing: .5px;
+  }
+
+  .wh-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .wh-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .wh-del:hover { color: var(--out); }
+
+  .wh-exit-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--amber);
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .wh-exit-btn:hover { border-color: var(--amber); }
+
+  .wh-exit-editor {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: nowrap;
+  }
+
+  .wh-exit-editor input[type="date"],
+  .wh-exit-editor input[type="time"] {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 5px 6px;
+    font-family: inherit;
+    font-size: 12px;
+    width: 100px;
+  }
+
+  .wh-exit-editor input[type="time"] { width: 78px; }
+  .wh-exit-editor input[type="text"] { width: 90px; }
+  .wh-exit-editor select {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 5px 6px;
+    font-family: inherit;
+    font-size: 12px;
+    width: 100px;
+  }
+
+  .wh-exit-confirm, .wh-exit-cancel {
+    border: none;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .wh-exit-confirm { background: var(--in); color: #0d1f16; }
+  .wh-exit-cancel { background: var(--surface-2); color: var(--muted); }
+  .wh-exit-cancel:hover { color: var(--out); }
+
+  .wh-note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .wh-edit-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .wh-row-editing input[type="date"],
+  .wh-row-editing input[type="time"],
+  .wh-row-editing input[type="text"],
+  .wh-row-editing select {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 5px 6px;
+    font-family: inherit;
+    font-size: 12px;
+    width: 100%;
+    min-width: 78px;
+  }
+
+  .wh-row-editing input:focus,
+  .wh-row-editing select:focus {
+    outline: none;
+    border-color: var(--amber);
+  }
+
+  .wh-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .wh-edit-confirm, .wh-edit-cancel {
+    border: none;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .wh-edit-confirm { background: var(--in); color: #0d1f16; }
+  .wh-edit-cancel { background: var(--surface-2); color: var(--muted); }
+  .wh-edit-cancel:hover { color: var(--out); }
+
+  .wh-edit-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .wh-edit-btn:hover { color: var(--amber); }
+
+  .wh-delete-selected {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--out);
+    border-radius: 4px;
+    padding: 9px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .wh-delete-selected:hover:not(:disabled) { border-color: var(--out); }
+  .wh-delete-selected:disabled { opacity: .4; cursor: not-allowed; }
+
+  .wh-check-col { width: 30px; text-align: center !important; }
+
+  .wh-jalali-date { cursor: pointer; }
+  .wh-exit-editor input.wh-jalali-date { width: 100px; }
+
+  .wh-jalali-cal {
+    position: fixed;
+    z-index: 9999;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    width: 220px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    font-family: 'Vazirmatn', sans-serif;
+    direction: rtl;
+  }
+  .wh-cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 6px;
+  }
+  .wh-cal-title { font-weight: 700; font-size: 12px; color: var(--text); }
+  .wh-cal-nav {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .wh-cal-nav:hover { border-color: var(--amber); }
+  .wh-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+  .wh-cal-weekday {
+    text-align: center;
+    font-size: 10px;
+    color: var(--muted);
+    padding-bottom: 4px;
+  }
+  .wh-cal-day {
+    background: var(--surface-2);
+    border: 1px solid transparent;
+    color: var(--text);
+    border-radius: 4px;
+    padding: 6px 0;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .wh-cal-day:hover { border-color: var(--amber); }
+  .wh-cal-day.selected { background: var(--amber); color: #241a02; font-weight: 700; }
+  .wh-cal-footer { margin-top: 8px; text-align: center; }
+  .wh-cal-today {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--amber);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .wh-cal-today:hover { border-color: var(--amber); }
+
+
+  /* ================= تنظیمات صفحه ================= */
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  html, body { margin: 0; background: var(--bg); }
+  [hidden] { display: none !important; }
+  #wh-root, .wh-jalali-cal, .wh-modal {
+    font-family: 'Vazirmatn', Tahoma, 'Segoe UI', sans-serif;
+  }
+  #wh-root { min-height: 100vh; border-radius: 0; }
+  .wh-table-wrap { overflow-x: auto; }
+
+  /* ================= نوع کاربر: ناظر / همه‌ی شرکت‌ها / یک شرکت ================= */
+  #wh-screen-app:not(.is-supervisor) .sup-only { display: none !important; }
+  #wh-screen-app.is-supervisor .rec-only { display: none !important; }
+  #wh-screen-app.is-single .multi-only { display: none !important; }
+
+  /* ================= ورود / کارت‌ها ================= */
+  .wh-center { max-width: 460px; margin: 6vh auto 0; }
+  .wh-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .wh-card .sub { color: var(--muted); font-size: 12px; margin: 0 0 16px; line-height: 1.9; }
+  .wh-card h2 { margin: 0 0 6px; font-size: 18px; font-weight: 900; }
+
+  .wh-role-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 480px) { .wh-role-grid { grid-template-columns: 1fr 1fr; } }
+  .wh-role-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 14px 6px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+  }
+  .wh-role-card small { display: block; font-weight: 400; font-size: 11px; margin-top: 4px; opacity: .85; }
+  .wh-role-card:hover { border-color: var(--amber); }
+  .wh-role-card.active { background: var(--amber); color: #241a02; border-color: var(--amber); }
+
+  .wh-msg { min-height: 20px; font-size: 12px; color: var(--out); margin: 8px 0 4px; line-height: 1.8; }
+  .wh-linkbtn {
+    background: none; border: none; color: var(--amber);
+    font-family: inherit; font-size: 12px; cursor: pointer;
+    margin-top: 14px; padding: 0; display: block;
+  }
+  .wh-linkbtn:hover { text-decoration: underline; }
+  .wh-stack { display: flex; flex-direction: column; gap: 12px; }
+
+  .wh-spinner {
+    width: 28px; height: 28px; margin: 6px auto 14px;
+    border: 3px solid var(--border); border-top-color: var(--amber);
+    border-radius: 50%; animation: whspin .9s linear infinite;
+  }
+  @keyframes whspin { to { transform: rotate(360deg); } }
+
+  /* ================= نوار کاربر ================= */
+  .wh-userbar {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; margin-bottom: 14px; font-size: 12px; color: var(--muted);
+  }
+  .wh-role-chip {
+    display: inline-block; padding: 3px 12px; border-radius: 10px;
+    background: var(--amber-dim); color: #ffe2a0; font-weight: 700; font-size: 12px;
+    margin-inline-start: 6px;
+  }
+  .wh-banner {
+    background: rgba(226,87,76,.12); border: 1px solid var(--out); color: #ffb3ac;
+    border-radius: 6px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px; line-height: 1.8;
+  }
+
+  /* ================= آمار ناظر ================= */
+  .wh-statgrid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;
+  }
+  @media (max-width: 720px) { .wh-statgrid { grid-template-columns: 1fr 1fr; } }
+  .wh-statcard {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px 14px; font-size: 12px; color: var(--muted);
+  }
+  .wh-statcard b { display: block; font-size: 24px; color: var(--text); font-weight: 700; margin-top: 2px; }
+
+  .wh-chip.site-ashtehard { background: rgba(240,162,2,.15); color: var(--amber); }
+  .wh-chip.site-sefiddasht { background: rgba(96,165,250,.16); color: #86bdf8; }
+  .wh-chip.site-mahan { background: rgba(167,139,250,.16); color: #c1b0fb; }
+  .wh-chip.site-abhar { background: rgba(45,212,191,.15); color: #5eead4; }
+
+  .wh-toggle button.active[data-site] { background: var(--amber); color: #241a02; }
+  .wh-select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 4px; padding: 9px 10px; font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+  .wh-select:focus { outline: none; border-color: var(--amber); }
+
+  /* ================= پنجره‌ی پیام (جایگزین alert/confirm) ================= */
+  .wh-modal-back {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 10000;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .wh-modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px; width: min(420px, 100%); color: var(--text); direction: rtl;
+    box-shadow: 0 16px 40px rgba(0,0,0,.5);
+  }
+  .wh-modal-msg { font-size: 14px; line-height: 2; white-space: pre-line; margin-bottom: 16px; }
+  .wh-modal-actions { display: flex; gap: 8px; }
+  .wh-modal-actions .wh-submit, .wh-modal-actions .wh-export { flex: 1; }
+  .wh-modal-actions .danger { background: var(--out); color: #2a0e0b; }
+
+  /* ================= انتخاب شرکت، مدیریت کاربران ================= */
+  #wh-site-toggle button { white-space: nowrap; padding: 9px 14px; }
+  .wh-center.wide { max-width: 760px; }
+  .wh-user-card {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px 14px;
+  }
+  .wh-user-card h3 { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--amber); }
+  .wh-user-card h3 small { color: var(--muted); font-weight: 400; font-size: 11px; }
+  .wh-user-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  @media (max-width: 480px) { .wh-user-grid { grid-template-columns: 1fr; } }
+  .wh-user-card .wh-field input, .wh-user-card .wh-field select { background: var(--surface); }
+  .wh-form-site { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .wh-form-site b { color: var(--amber); font-size: 14px; }
+  .wh-statcard small { display: block; font-size: 11px; margin-top: 2px; }
+  .wh-statcard .wh-chip { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div id="wh-root">
+
+  <!-- در حال اتصال -->
+  <section class="wh-screen" id="wh-screen-loading">
+    <div class="wh-center"><div class="wh-card">
+      <div class="wh-spinner"></div>
+      <p class="sub" style="text-align:center;margin:0">در حال اتصال به پایگاه داده…</p>
+    </div></div>
+  </section>
+
+  <!-- خطا -->
+  <section class="wh-screen" id="wh-screen-error" hidden>
+    <div class="wh-center"><div class="wh-card">
+      <h2>اتصال برقرار نشد</h2>
+      <p class="sub" id="wh-error-text" style="margin:0"></p>
+    </div></div>
+  </section>
+
+  <!-- راه‌اندازی هنوز انجام نشده -->
+  <section class="wh-screen" id="wh-screen-nosetup" hidden>
+    <div class="wh-center"><div class="wh-card">
+      <h2>راه‌اندازی اولیه انجام نشده</h2>
+      <p class="sub">هنوز کاربری تعریف نشده است. یک‌بار نام کاربری و رمز هر ۷ کاربر را تعیین کنید؛ این کار فقط یک‌بار و پیش از اشتراک‌گذاری لینک با دیگران باید انجام شود.</p>
+      <button type="button" class="wh-submit" id="wh-setup-btn" style="width:100%">تعریف کاربران و رمزها</button>
+    </div></div>
+  </section>
+
+  <!-- ورود -->
+  <section class="wh-screen" id="wh-screen-login" hidden>
+    <div class="wh-center"><div class="wh-card">
+      <div class="wh-title" style="margin-bottom:6px">ثبت <span>ورود و خروج</span> بار</div>
+      <p class="sub">ابتدا شرکت خود را انتخاب کنید، سپس با نام کاربری و رمز عبور خودتان وارد شوید.</p>
+      <div class="wh-role-grid">
+        <button type="button" class="wh-role-card" data-site="ashtehard">اشتهارد</button>
+        <button type="button" class="wh-role-card" data-site="sefiddasht">سفیددشت</button>
+        <button type="button" class="wh-role-card" data-site="mahan">ماهان</button>
+        <button type="button" class="wh-role-card" data-site="abhar">ابهر</button>
+      </div>
+      <div class="wh-stack">
+        <div class="wh-field">
+          <label for="wh-login-user">نام کاربری</label>
+          <input id="wh-login-user" type="text" dir="ltr" style="text-align:left" autocomplete="username" autocapitalize="off" spellcheck="false">
+        </div>
+        <div class="wh-field">
+          <label for="wh-login-pw">رمز عبور</label>
+          <input id="wh-login-pw" type="password" autocomplete="current-password">
+        </div>
+      </div>
+      <div class="wh-msg" id="wh-login-msg"></div>
+      <button type="button" class="wh-submit" id="wh-login-btn" style="width:100%">ورود</button>
+    </div></div>
+  </section>
+
+  <!-- تعریف/تغییر کاربران و رمزها (ناظر) -->
+  <section class="wh-screen" id="wh-screen-passwords" hidden>
+    <div class="wh-center wide"><div class="wh-card">
+      <h2 id="wh-pw-title">تعریف کاربران و رمزها</h2>
+      <p class="sub" id="wh-pw-sub"></p>
+      <div class="wh-stack" id="wh-users-form"></div>
+      <div class="wh-msg" id="wh-pw-msg"></div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="wh-submit" id="wh-pw-save" style="flex:1">ذخیره</button>
+        <button type="button" class="wh-export" id="wh-pw-cancel">بازگشت</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- برنامه‌ی اصلی -->
+  <section class="wh-screen" id="wh-screen-app" hidden>
+
+    <div class="wh-userbar">
+      <div>کاربر فعال:<span class="wh-role-chip" id="wh-user-role">—</span></div>
+      <button type="button" class="wh-linkbtn" id="wh-manage-pw" hidden>مدیریت کاربران و رمزها</button>
+      <button type="button" class="wh-export" id="wh-logout">خروج از حساب</button>
+    </div>
+
+    <div class="wh-banner" id="wh-banner" hidden></div>
+
+    <div class="wh-header">
+      <div class="wh-title" id="wh-app-title">ثبت <span>ورود و خروج</span> بار – ماهان</div>
+      <div class="wh-stat rec-only">هم‌اکنون داخل انبار<b id="wh-inside-count">—</b></div>
+    </div>
+
+    <div class="wh-statgrid sup-only" id="wh-statgrid"></div>
+
+    <div class="wh-form rec-only">
+      <div class="wh-form-site">ثبت برای شرکت: <b id="wh-form-site">—</b></div>
+      <div class="wh-form-row">
+        <div class="wh-field">
+          <label>تاریخ</label>
+          <input id="wh-date" type="text" class="wh-jalali-date" readonly placeholder="انتخاب تاریخ">
+        </div>
+        <div class="wh-field">
+          <label>نوع ماشین</label>
+          <input id="wh-vehicle" type="text" placeholder="مثلاً کامیون، تریلی، وانت">
+        </div>
+        <div class="wh-field">
+          <label>پلاک خودرو</label>
+          <input id="wh-plate" type="text" placeholder="مثلاً ۱۲ ایران ۳۴۵ ب ۶۷">
+        </div>
+        <div class="wh-field">
+          <label>نام راننده</label>
+          <input id="wh-driver" type="text" placeholder="نام راننده">
+        </div>
+        <div class="wh-field">
+          <label>شماره بارنامه</label>
+          <input id="wh-waybill" type="text" placeholder="شماره بارنامه">
+        </div>
+        <div class="wh-field">
+          <label>ساعت</label>
+          <input id="wh-hour" type="time" step="60">
+        </div>
+        <div class="wh-field">
+          <label>بار ورود</label>
+          <input id="wh-cargo-in" type="text" list="wh-cargo-list-mahan" placeholder="انتخاب یا تایپ کنید" autocomplete="off">
+        </div>
+        <div class="wh-field">
+          <label>بار خروج</label>
+          <input id="wh-cargo-out" type="text" list="wh-cargo-list-mahan" placeholder="انتخاب یا تایپ کنید" autocomplete="off">
+        </div>
+        <div class="wh-field">
+          <label>نوع</label>
+          <div class="wh-toggle" id="wh-dir-toggle">
+            <button type="button" data-dir="in" class="active">ورود</button>
+            <button type="button" data-dir="out">خروج</button>
+          </div>
+        </div>
+        <button class="wh-submit" id="wh-submit">ثبت</button>
+      </div>
+    </div>
+
+    <datalist id="wh-cargo-list-mahan"></datalist>
+
+    <div class="wh-toolbar">
+      <div class="wh-toggle multi-only" id="wh-site-toggle"></div>
+      <input class="wh-search" id="wh-search" placeholder="جستجو بر اساس پلاک، نوع ماشین، راننده، بارنامه، بار یا ثبت‌کننده...">
+      <select class="wh-select" id="wh-range" title="بازه‌ی نمایش">
+        <option value="30">۳۰ روز اخیر</option>
+        <option value="90" selected>۹۰ روز اخیر</option>
+        <option value="365">یک سال اخیر</option>
+        <option value="0">همه</option>
+      </select>
+      <button class="wh-delete-selected rec-only" id="wh-delete-selected" disabled>حذف انتخاب‌شده‌ها (<span id="wh-selected-count">۰</span>)</button>
+      <button class="wh-export" id="wh-export">خروجی اکسل</button>
+    </div>
+
+    <div class="wh-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="wh-check-col rec-only"><input type="checkbox" id="wh-select-all" title="انتخاب همه"></th>
+            <th class="sup-only">شرکت</th>
+            <th class="sup-only">ثبت‌کننده</th>
+            <th>ورود</th>
+            <th>خروج</th>
+            <th>نوع ماشین</th>
+            <th>پلاک</th>
+            <th>نام راننده</th>
+            <th>شماره بارنامه</th>
+            <th>بار ورود</th>
+            <th>بار خروج</th>
+            <th class="rec-only"></th>
+          </tr>
+        </thead>
+        <tbody id="wh-tbody"></tbody>
+      </table>
+      <div class="wh-empty" id="wh-empty" style="display:none;"></div>
+    </div>
+
+    <div class="wh-note" id="wh-note"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const SITES = ['ashtehard', 'sefiddasht', 'mahan', 'abhar'];
+  const SITE_LABEL = { ashtehard: 'اشتهارد', sefiddasht: 'سفیددشت', mahan: 'ماهان', abhar: 'ابهر' };
+  // ۷ کاربر ثابت: ۱ ناظر، ۲ کاربر «همه‌ی شرکت‌ها»، ۴ کاربر «یک شرکت»
+  const USER_SLOTS = [
+    { slot: 1, kind: 'supervisor', title: 'ناظر', hint: 'همه‌ی لیست‌ها را می‌بیند؛ ثبت یا ویرایش ندارد', defUser: 'nazer', defName: 'ناظر' },
+    { slot: 2, kind: 'multi', title: 'کاربر همه‌ی شرکت‌ها (۱)', hint: 'ثبت برای هر ۴ شرکت', defUser: 'user1', defName: 'کاربر ۱' },
+    { slot: 3, kind: 'multi', title: 'کاربر همه‌ی شرکت‌ها (۲)', hint: 'ثبت برای هر ۴ شرکت', defUser: 'user2', defName: 'کاربر ۲' },
+    { slot: 4, kind: 'single', title: 'کاربر شرکت (۱)', hint: 'فقط ثبت برای شرکت خودش', defUser: 'ashtehard', defName: 'کاربر اشتهارد', defCompany: 'ashtehard' },
+    { slot: 5, kind: 'single', title: 'کاربر شرکت (۲)', hint: 'فقط ثبت برای شرکت خودش', defUser: 'sefiddasht', defName: 'کاربر سفیددشت', defCompany: 'sefiddasht' },
+    { slot: 6, kind: 'single', title: 'کاربر شرکت (۳)', hint: 'فقط ثبت برای شرکت خودش', defUser: 'mahan', defName: 'کاربر ماهان', defCompany: 'mahan' },
+    { slot: 7, kind: 'single', title: 'کاربر شرکت (۴)', hint: 'فقط ثبت برای شرکت خودش', defUser: 'abhar', defName: 'کاربر ابهر', defCompany: 'abhar' }
+  ];
+  const KIND_LABEL = { supervisor: 'ناظر', multi: 'همه‌ی شرکت‌ها', single: 'یک شرکت' };
+  const CARGO_OPTIONS = ['ضایعات', 'شمش', 'بدون بار', 'نامعلوم', 'تیر آهن'];
+  const PBKDF2_ITER = 150000;
+  const SESSION_KEY = 'wh-log-session-v2';
+  const USERNAME_RE = /^[A-Za-z0-9_.-]{2,32}$/;
+  const MIN_PW = 6;
+
+  const $ = id => document.getElementById(id);
+  const tbody = $('wh-tbody');
+  const emptyEl = $('wh-empty');
+  const insideCountEl = $('wh-inside-count');
+  const searchEl = $('wh-search');
+  const timeEl = $('wh-date');
+  const hourEl = $('wh-hour');
+  const plateEl = $('wh-plate');
+  const vehicleEl = $('wh-vehicle');
+  const cargoInEl = $('wh-cargo-in');
+  const cargoOutEl = $('wh-cargo-out');
+  const driverEl = $('wh-driver');
+  const waybillEl = $('wh-waybill');
+  const submitBtn = $('wh-submit');
+  const selectAllEl = $('wh-select-all');
+  const delSelBtn = $('wh-delete-selected');
+  const selCountEl = $('wh-selected-count');
+  const rangeEl = $('wh-range');
+
+  // ---------- اتصال Supabase ----------
+  // آدرس و کلید پروژه Supabase خودتان را اینجا جایگزین کنید (Project Settings > API)
+  const SUPABASE_URL = 'https://gajjwjhlfmblzhbhwonf.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdhamp3amhsZm1ibHpoYmh3b25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5NTUwOTIsImV4cCI6MjEwNTUzMTA5Mn0.ygOBke-5SyUJ7tErsk2kn6V4mS5iVqNlJYZ-bPT77Ck';
+  const supabase = (window.supabase && SUPABASE_URL.indexOf('YOUR-PROJECT-REF') === -1 && SUPABASE_ANON_KEY.indexOf('YOUR-ANON') === -1)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+  // ---------- وضعیت ----------
+  let db = null;
+  let dbState = 'connecting';          // connecting | ready | unavailable
+  let dbErrorText = '';
+  let dataWriteFlag = true;
+  let setupDone;                       // undefined = هنوز نیامده، false/true = وضعیت راه‌اندازی
+  let user = null;                     // { username, kind, name, company }  kind: supervisor | multi | single
+  let sessionHash = null;
+  let pickedSite = null;               // شرکتی که در صفحه‌ی ورود انتخاب شده
+  let currentScreen = '';
+  let logs = new Map();                // docId -> سند روزانه
+  let entries = [];                    // ردیف‌های تخت‌شده
+  let logsReady = false;
+  let rangeDays = 90;
+  let curSite = null;                  // شرکتی که هم‌اکنون نمایش داده می‌شود (ناظر: یا all)
+  let unsubLogs = null;
+  let currentDir = 'in';
+  let editingExitId = null;
+  const pendingExit = {};
+  let editingRowId = null;
+  const pendingEdit = {};
+  let selectedIds = new Set();
+  let dirtyWhileEditing = false;
+  let failCount = 0;
+  let lockUntil = 0;
+  let memSession = null;
+
+  const fa = n => Number(n).toLocaleString('fa-IR');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---------- پنجره‌ی پیام (به‌جای alert/confirm که در صفحه‌ی منتشرشده ممکن است بلوکه باشد) ----------
+  function uiDialog(message, opts) {
+    const o = Object.assign({ confirm: false, okText: 'تأیید', cancelText: 'انصراف', danger: false }, opts || {});
+    return new Promise(resolve => {
+      const back = document.createElement('div');
+      back.className = 'wh-modal-back';
+      back.innerHTML =
+        '<div class="wh-modal" role="dialog" aria-modal="true">' +
+        '<div class="wh-modal-msg"></div>' +
+        '<div class="wh-modal-actions">' +
+        '<button type="button" class="wh-submit wh-modal-ok"></button>' +
+        (o.confirm ? '<button type="button" class="wh-export wh-modal-cancel"></button>' : '') +
+        '</div></div>';
+      back.querySelector('.wh-modal-msg').textContent = message;
+      const okBtn = back.querySelector('.wh-modal-ok');
+      okBtn.textContent = o.okText;
+      if (o.danger) okBtn.classList.add('danger');
+      const cancelBtn = back.querySelector('.wh-modal-cancel');
+      if (cancelBtn) cancelBtn.textContent = o.cancelText;
+      const done = v => { document.removeEventListener('keydown', onKey, true); back.remove(); resolve(v); };
+      const onKey = ev => { if (ev.key === 'Escape') { ev.preventDefault(); done(false); } };
+      okBtn.addEventListener('click', () => done(true));
+      if (cancelBtn) cancelBtn.addEventListener('click', () => done(false));
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(back);
+      okBtn.focus();
+    });
+  }
+  const uiAlert = msg => uiDialog(msg);
+  const uiConfirm = (msg, danger, okText) => uiDialog(msg, { confirm: true, danger: !!danger, okText: okText || 'تأیید' });
+
+  function showBanner(msg) {
+    const b = $('wh-banner');
+    b.textContent = msg || '';
+    b.hidden = !msg;
+  }
+
+  function writeErrMsg(err) {
+    const c = err && err.code;
+    const m = String((err && err.message) || '');
+    if (c === 'quota_exceeded') return 'ظرفیت پایگاه داده پر شده است. با ادمین تماس بگیرید.';
+    if (c === 'invalid_argument' || m.indexOf('not own row') !== -1 || m.indexOf('not own company') !== -1 || m.indexOf('read-only') !== -1) return 'شما اجازه‌ی ثبت یا تغییر اطلاعات این شرکت را ندارید.';
+    if (m.indexOf('invalid credentials') !== -1) return 'نشست شما نامعتبر شده است؛ دوباره وارد شوید.';
+    if (m.indexOf('not authorized') !== -1) return 'فقط ناظر می‌تواند کاربران و رمزها را تغییر دهد.';
+    if (c === '23505' || m.indexOf('duplicate key') !== -1) return 'این نام کاربری برای کاربر دیگری استفاده شده است.';
+    if (c === 'resource_exhausted') return 'تعداد درخواست‌ها زیاد است؛ چند لحظه بعد دوباره تلاش کنید.';
+    if (c === 'revoked') return 'دسترسی شما به این صفحه لغو شده است.';
+    return 'ذخیره‌سازی اطلاعات با خطا مواجه شد. لطفاً دوباره تلاش کنید.';
+  }
+
+  function handleDbError(err, fatal) {
+    console.error('db error', err);
+    const code = err && err.code;
+    if (fatal || code === 'revoked') {
+      dbState = 'unavailable';
+      dbErrorText = code === 'revoked'
+        ? 'دسترسی شما به این صفحه لغو شده است.'
+        : 'اتصال به پایگاه داده برقرار نشد. لطفاً صفحه را دوباره باز کنید.';
+      route();
+    } else {
+      showBanner('خطا در دریافت اطلاعات از پایگاه داده. کمی بعد دوباره تلاش کنید.');
+    }
+  }
+
+  // ---------- رمزنگاری رمز عبور ----------
+  function bytesToB64(bytes) { let s = ''; bytes.forEach(b => { s += String.fromCharCode(b); }); return btoa(s); }
+  function b64ToBytes(b64) {
+    const s = atob(b64); const out = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+  function normPw(v) { return toEnDigits(String(v || '')).trim(); }
+  function newSalt() { const b = new Uint8Array(16); crypto.getRandomValues(b); return bytesToB64(b); }
+  async function derivePw(pw, saltB64, iter) {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: b64ToBytes(saltB64), iterations: iter, hash: 'SHA-256' }, key, 256);
+    return bytesToB64(new Uint8Array(bits));
+  }
+
+  // ---------- نشست (فقط تا بستن تب) ----------
+  function saveSession() {
+    const v = JSON.stringify({ u: user.username, h: sessionHash, s: pickedSite });
+    memSession = v;
+    try { sessionStorage.setItem(SESSION_KEY, v); } catch (e) { /* ممکن است در دسترس نباشد */ }
+  }
+  function loadSession() {
+    let raw = memSession;
+    try { raw = sessionStorage.getItem(SESSION_KEY) || raw; } catch (e) { /* ignore */ }
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+  function clearSession() {
+    memSession = null;
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+  }
+
+  // ---------- صفحه‌ها و مسیردهی ----------
+  const SCREENS = ['loading', 'error', 'nosetup', 'login', 'passwords', 'app'];
+  function showScreen(name) {
+    currentScreen = name;
+    SCREENS.forEach(n => { $('wh-screen-' + n).hidden = (n !== name); });
+  }
+
+  let sessionChecked = false;
+  async function trySessionRestore() {
+    sessionChecked = true;
+    const s = loadSession();
+    if (!s || !s.u || !s.h || SITES.indexOf(s.s) === -1) { route(); return; }
+    try {
+      const { data, error } = await supabase.rpc('wh_login', { p_username: s.u, p_hash: s.h, p_company: s.s }).single();
+      if (!error && data && data.allowed) {
+        user = { username: s.u, kind: data.kind, name: data.display_name, company: data.company };
+        sessionHash = s.h; pickedSite = s.s; curSite = s.s;
+        enterApp(); return;
+      }
+    } catch (e) { console.error(e); }
+    clearSession();
+    route();
+  }
+
+  function route() {
+    if (dbState === 'unavailable') { $('wh-error-text').textContent = dbErrorText; showScreen('error'); return; }
+    if (setupDone === undefined) { showScreen('loading'); return; }
+    if (user) { if (currentScreen !== 'app') showScreen('app'); return; }
+    if (currentScreen === 'passwords') return;
+    if (!setupDone) { showScreen('nosetup'); return; }
+    if (!sessionChecked) { showScreen('loading'); trySessionRestore(); return; }
+    showScreen('login');
+  }
+
+  // ---------- ورود / خروج ----------
+  function setLoginMsg(m) { $('wh-login-msg').textContent = m || ''; }
+
+  document.querySelectorAll('.wh-role-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pickedSite = btn.dataset.site;
+      document.querySelectorAll('.wh-role-card').forEach(b => b.classList.toggle('active', b === btn));
+      setLoginMsg('');
+      $('wh-login-user').focus();
+    });
+  });
+
+  async function tryLogin() {
+    const now = Date.now();
+    if (now < lockUntil) { setLoginMsg('تلاش‌های ناموفق زیاد بود؛ ' + fa(Math.ceil((lockUntil - now) / 1000)) + ' ثانیه صبر کنید.'); return; }
+    if (!pickedSite) { setLoginMsg('ابتدا شرکت خود را انتخاب کنید.'); return; }
+    const uname = $('wh-login-user').value.trim();
+    if (!uname) { setLoginMsg('نام کاربری را وارد کنید.'); return; }
+    const pw = normPw($('wh-login-pw').value);
+    if (!pw) { setLoginMsg('رمز عبور را وارد کنید.'); return; }
+    const btn = $('wh-login-btn');
+    btn.disabled = true;
+    try {
+      const { data: saltRow, error: saltErr } = await supabase.rpc('wh_login_salt', { p_username: uname }).single();
+      if (saltErr || !saltRow) { setLoginMsg('بررسی نام کاربری ممکن نشد. دوباره تلاش کنید.'); return; }
+      const h = await derivePw(pw, saltRow.salt, saltRow.iter || PBKDF2_ITER);
+      const { data: res, error: verErr } = await supabase.rpc('wh_login', { p_username: uname, p_hash: h, p_company: pickedSite }).single();
+      if (verErr || !res) {
+        if (verErr && String(verErr.message || '').indexOf('invalid credentials') === -1) {
+          setLoginMsg('بررسی رمز عبور ممکن نشد. صفحه را دوباره بارگذاری کنید.');
+          return;
+        }
+        failCount++;
+        if (failCount >= 5) { lockUntil = Date.now() + 30000; failCount = 0; }
+        setLoginMsg('نام کاربری یا رمز عبور اشتباه است.');
+        return;
+      }
+      if (!res.allowed) {
+        setLoginMsg('این کاربر اجازه‌ی ورود به شرکت «' + SITE_LABEL[pickedSite] + '» را ندارد.');
+        return;
+      }
+      failCount = 0;
+      user = { username: uname, kind: res.kind, name: res.display_name, company: res.company };
+      sessionHash = h; curSite = pickedSite; saveSession();
+      $('wh-login-pw').value = ''; setLoginMsg('');
+      enterApp();
+    } catch (e) {
+      console.error(e);
+      setLoginMsg('بررسی رمز عبور ممکن نشد. صفحه را دوباره بارگذاری کنید.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  $('wh-login-btn').addEventListener('click', tryLogin);
+  $('wh-login-user').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); $('wh-login-pw').focus(); } });
+  $('wh-login-pw').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); tryLogin(); } });
+
+  function doLogout(msg) {
+    if (unsubLogs) { unsubLogs(); unsubLogs = null; }
+    closeJalaliCalendar();
+    user = null; sessionHash = null; curSite = null; clearSession();
+    logs = new Map(); entries = []; logsReady = false;
+    editingExitId = null; editingRowId = null; selectedIds.clear();
+    pickedSite = null;
+    document.querySelectorAll('.wh-role-card').forEach(b => b.classList.remove('active'));
+    $('wh-login-user').value = ''; $('wh-login-pw').value = '';
+    setLoginMsg(msg || '');
+    route();
+  }
+  $('wh-logout').addEventListener('click', () => doLogout(''));
+
+  // ---------- تعریف/تغییر کاربران و رمزها ----------
+  // راه‌اندازی اولیه (وقتی هنوز هیچ کاربری ثبت نشده) آزاد است؛ پس از آن فقط «ناظر» می‌تواند نام کاربری، شرکت و رمزها را تغییر دهد.
+  function setPwMsg(m) { $('wh-pw-msg').textContent = m || ''; }
+
+  function buildUsersForm(list, first) {
+    const box = $('wh-users-form');
+    box.innerHTML = '';
+    USER_SLOTS.forEach(def => {
+      const cur = list.find(u => u.slot === def.slot) || {};
+      const selCompany = cur.company || def.defCompany;
+      const companyField = def.kind === 'single'
+        ? `<div class="wh-field"><label>شرکت</label><select class="wh-u-company">${SITES.map(s => `<option value="${s}"${selCompany === s ? ' selected' : ''}>${esc(SITE_LABEL[s])}</option>`).join('')}</select></div>`
+        : '';
+      const card = document.createElement('div');
+      card.className = 'wh-user-card';
+      card.dataset.slot = String(def.slot);
+      card.innerHTML = `
+        <h3>${esc(def.title)} <small>— ${esc(def.hint)}</small></h3>
+        <div class="wh-user-grid">
+          <div class="wh-field"><label>نام نمایشی</label><input type="text" class="wh-u-name" value="${esc(cur.display_name || def.defName)}"></div>
+          <div class="wh-field"><label>نام کاربری (انگلیسی، بدون فاصله)</label><input type="text" class="wh-u-user" dir="ltr" style="text-align:left" autocapitalize="off" spellcheck="false" value="${esc(cur.username || def.defUser)}"></div>
+          ${companyField}
+          <div class="wh-field"><label>رمز عبور${first ? '' : ' (خالی = بدون تغییر)'}</label><input type="password" class="wh-u-pw" autocomplete="new-password"></div>
+        </div>`;
+      box.appendChild(card);
+    });
+  }
+
+  async function openPasswords() {
+    const first = !setupDone;
+    if (!first && !isSupervisor()) return;
+    $('wh-pw-title').textContent = first ? 'راه‌اندازی اولیه: تعریف کاربران و رمزها' : 'مدیریت کاربران و رمزها';
+    $('wh-pw-sub').textContent = first
+      ? 'برای هر ۷ کاربر نام کاربری و رمز تعیین کنید (رمز حداقل ' + fa(MIN_PW) + ' کاراکتر). هر کاربر در صفحه‌ی ورود ابتدا شرکت خودش را انتخاب می‌کند و بعد با نام کاربری و رمز خودش وارد می‌شود.'
+      : 'نام کاربری، شرکت و رمز هر کاربر را می‌توانید تغییر دهید. فیلد رمز خالی = رمز قبلی بدون تغییر می‌ماند.';
+    $('wh-pw-cancel').hidden = first;
+    setPwMsg('');
+    let list = [];
+    if (!first) {
+      try {
+        const { data, error } = await supabase.rpc('wh_list_users', { p_username: user.username, p_hash: sessionHash });
+        if (error) throw error;
+        list = data || [];
+      } catch (err) {
+        console.error(err);
+        await uiAlert(writeErrMsg(err));
+        return;
+      }
+    }
+    buildUsersForm(list, first);
+    showScreen('passwords');
+  }
+  $('wh-setup-btn').addEventListener('click', openPasswords);
+  $('wh-manage-pw').addEventListener('click', openPasswords);
+  $('wh-pw-cancel').addEventListener('click', () => { $('wh-users-form').innerHTML = ''; currentScreen = ''; route(); });
+
+  $('wh-pw-save').addEventListener('click', async () => {
+    const first = !setupDone;
+    const btn = $('wh-pw-save');
+    btn.disabled = true;
+    try {
+      const rows = [];
+      const seen = new Set();
+      for (const card of $('wh-users-form').querySelectorAll('.wh-user-card')) {
+        const slot = parseInt(card.dataset.slot, 10);
+        const def = USER_SLOTS.find(d => d.slot === slot);
+        const title = '«' + def.title + '»';
+        const name = card.querySelector('.wh-u-name').value.trim();
+        const uname = card.querySelector('.wh-u-user').value.trim();
+        const pw = normPw(card.querySelector('.wh-u-pw').value);
+        const compEl = card.querySelector('.wh-u-company');
+        if (!name) { setPwMsg('نام نمایشی ' + title + ' را وارد کنید.'); return; }
+        if (!USERNAME_RE.test(uname)) { setPwMsg('نام کاربری ' + title + ' باید ۲ تا ۳۲ کاراکتر انگلیسی/عدد بدون فاصله باشد.'); return; }
+        const key = uname.toLowerCase();
+        if (seen.has(key)) { setPwMsg('نام کاربری «' + uname + '» تکراری است.'); return; }
+        seen.add(key);
+        if (!pw && first) { setPwMsg('رمز ' + title + ' را وارد کنید.'); return; }
+        if (pw && pw.length < MIN_PW) { setPwMsg('رمز ' + title + ' باید حداقل ' + fa(MIN_PW) + ' کاراکتر باشد.'); return; }
+        const row = { slot: slot, username: uname, display_name: name };
+        if (compEl) row.company = compEl.value;
+        if (pw) {
+          const salt = newSalt();
+          row.salt = salt; row.iter = PBKDF2_ITER; row.hash = await derivePw(pw, salt, PBKDF2_ITER);
+        }
+        rows.push(row);
+      }
+      if (first) {
+        const { error } = await supabase.rpc('wh_setup_users', { p_users: rows });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.rpc('wh_update_users', {
+          p_acting_username: user.username, p_acting_hash: sessionHash, p_updates: rows
+        });
+        if (error) throw error;
+        // اگر ناظر نام کاربری یا رمز خودش را تغییر داده باشد، نشست فعلی را به‌روز کن
+        const me = rows.find(r => r.slot === 1);
+        if (me) {
+          user.username = me.username; user.name = me.display_name;
+          if (me.hash) sessionHash = me.hash;
+          saveSession();
+          $('wh-user-role').textContent = userChipText();
+        }
+      }
+      setupDone = true;
+      $('wh-users-form').innerHTML = '';
+      setPwMsg('');
+      currentScreen = '';
+      route();
+      await uiAlert(first ? 'کاربران و رمزها ذخیره شد. اکنون می‌توانید وارد شوید.' : 'تغییرات ذخیره شد.');
+    } catch (err) {
+      console.error(err);
+      setPwMsg(writeErrMsg(err));
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---------- ابزارهای زمان ----------
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString('fa-IR-u-ca-persian', { dateStyle: 'short', timeStyle: 'short' });
+  }
+  function localInputValue(d) {
+    const pad = n => String(n).padStart(2, '0');
+    const j = gregorianToJalali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    return {
+      date: `${toFaDigits(j.jy)}/${toFaDigits(pad(j.jm))}/${toFaDigits(pad(j.jd))}`,
+      hour: `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    };
+  }
+
+  // ---------- تقویم شمسی (جلالی) ----------
+  function jdiv(a, b) { return ~~(a / b); }
+  function jmod(a, b) { return a - ~~(a / b) * b; }
+
+  function jalCal(jy) {
+    const breaks = [-61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181, 1210, 1635, 2060, 2097, 2192, 2262, 2324, 2394, 2456, 3178];
+    const bl = breaks.length;
+    const gy = jy + 621;
+    let leapJ = -14, jp = breaks[0];
+    let jump = 0;
+    for (let i = 1; i < bl; i += 1) {
+      const jm = breaks[i];
+      jump = jm - jp;
+      if (jy < jm) break;
+      leapJ = leapJ + jdiv(jump, 33) * 8 + jdiv(jmod(jump, 33), 4);
+      jp = jm;
+    }
+    let n = jy - jp;
+    leapJ = leapJ + jdiv(n, 33) * 8 + jdiv(jmod(n, 33) + 3, 4);
+    if (jmod(jump, 33) === 4 && jump - n === 4) leapJ += 1;
+    const leapG = jdiv(gy, 4) - jdiv((jdiv(gy, 100) + 1) * 3, 4) - 150;
+    const march = 20 + leapJ - leapG;
+    if (jump - n < 6) n = n - jump + jdiv(jump, 33) * 33;
+    let leap = jmod(jmod(n + 1, 33) - 1, 4);
+    if (leap === -1) leap = 4;
+    return { leap, gy, march };
+  }
+
+  function g2d(gy, gm, gd) {
+    let d = jdiv((gy + jdiv(gm - 8, 6) + 100100) * 1461, 4)
+      + jdiv(153 * jmod(gm + 9, 12) + 2, 5)
+      + gd - 34840408;
+    d = d - jdiv(jdiv(gy + 100100 + jdiv(gm - 8, 6), 100) * 3, 4) + 752;
+    return d;
+  }
+
+  function d2g(jdn) {
+    let j = 4 * jdn + 139361631;
+    j = j + jdiv(jdiv(4 * jdn + 183187720, 146097) * 3, 4) * 4 - 3908;
+    const i = jdiv(jmod(j, 1461), 4) * 5 + 308;
+    const gd = jdiv(jmod(i, 153), 5) + 1;
+    const gm = jmod(jdiv(i, 153), 12) + 1;
+    const gy = jdiv(j, 1461) - 100100 + jdiv(8 - gm, 6);
+    return { gy, gm, gd };
+  }
+
+  function j2d(jy, jm, jd) {
+    const r = jalCal(jy);
+    return g2d(r.gy, 3, r.march) + (jm - 1) * 31 - jdiv(jm, 7) * (jm - 7) + jd - 1;
+  }
+
+  function d2j(jdn) {
+    const gy = d2g(jdn).gy;
+    let jy = gy - 621;
+    const r = jalCal(jy);
+    const jdn1f = g2d(gy, 3, r.march);
+    let jd, jm, k;
+    k = jdn - jdn1f;
+    if (k >= 0) {
+      if (k <= 185) {
+        jm = 1 + jdiv(k, 31);
+        jd = jmod(k, 31) + 1;
+        return { jy, jm, jd };
+      } else {
+        k -= 186;
+      }
+    } else {
+      jy -= 1;
+      k += 179;
+      if (r.leap === 1) k += 1;
+    }
+    jm = 7 + jdiv(k, 30);
+    jd = jmod(k, 30) + 1;
+    return { jy, jm, jd };
+  }
+
+  function gregorianToJalali(gy, gm, gd) { return d2j(g2d(gy, gm, gd)); }
+  function jalaliToGregorian(jy, jm, jd) { return d2g(j2d(jy, jm, jd)); }
+  function isLeapJalaliYear(jy) { return jalCal(jy).leap === 0; }
+  function jalaliMonthLength(jy, jm) {
+    if (jm <= 6) return 31;
+    if (jm <= 11) return 30;
+    return isLeapJalaliYear(jy) ? 30 : 29;
+  }
+
+  const JALALI_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+  const JALALI_WEEKDAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+  const FA_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+
+  function toFaDigits(v) { return String(v).replace(/[0-9]/g, d => FA_DIGITS[d]); }
+  function toEnDigits(v) { return String(v).replace(/[۰-۹]/g, d => String(FA_DIGITS.indexOf(d))); }
+
+  function jalaliStrToISODate(str) {
+    if (!str) return null;
+    const parts = toEnDigits(str).trim().split(/[\/\-]/).map(s => parseInt(s, 10));
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const [jy, jm, jd] = parts;
+    try {
+      const g = jalaliToGregorian(jy, jm, jd);
+      const pad = n => String(n).padStart(2, '0');
+      return `${g.gy}-${pad(g.gm)}-${pad(g.gd)}`;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function todayISODatePart() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  let jalCalState = null;
+
+  function closeJalaliCalendarPopup() {
+    const existing = document.getElementById('wh-jalali-cal-popup');
+    if (existing) existing.remove();
+  }
+
+  function closeJalaliCalendar() {
+    closeJalaliCalendarPopup();
+    jalCalState = null;
+    document.removeEventListener('click', onDocClickCloseCalendar, true);
+  }
+
+  function onDocClickCloseCalendar(ev) {
+    const popup = document.getElementById('wh-jalali-cal-popup');
+    if (!popup) return;
+    if (popup.contains(ev.target) || (jalCalState && ev.target === jalCalState.inputEl)) return;
+    closeJalaliCalendar();
+  }
+
+  function openJalaliCalendar(inputEl) {
+    closeJalaliCalendar();
+    let jy, jm, jd;
+    const parsed = inputEl.value ? toEnDigits(inputEl.value).split(/[\/\-]/).map(s => parseInt(s, 10)) : null;
+    if (parsed && parsed.length === 3 && !parsed.some(isNaN)) {
+      [jy, jm, jd] = parsed;
+    } else {
+      const today = new Date();
+      const t = gregorianToJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+      jy = t.jy; jm = t.jm; jd = t.jd;
+    }
+    jalCalState = { inputEl, jy, jm, jd };
+    renderJalaliCalendar();
+    document.addEventListener('click', onDocClickCloseCalendar, true);
+  }
+
+  function renderJalaliCalendar() {
+    closeJalaliCalendarPopup();
+    const { inputEl, jy, jm, jd } = jalCalState;
+    const rect = inputEl.getBoundingClientRect();
+    const popup = document.createElement('div');
+    popup.id = 'wh-jalali-cal-popup';
+    popup.className = 'wh-jalali-cal';
+
+    const daysInMonth = jalaliMonthLength(jy, jm);
+    const firstG = jalaliToGregorian(jy, jm, 1);
+    const firstJsDate = new Date(firstG.gy, firstG.gm - 1, firstG.gd);
+    const startOffset = (firstJsDate.getDay() + 1) % 7;
+
+    let cellsHtml = JALALI_WEEKDAYS.map(w => `<div class="wh-cal-weekday">${w}</div>`).join('');
+    for (let i = 0; i < startOffset; i++) cellsHtml += `<div class="wh-cal-empty"></div>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const sel = d === jd ? ' selected' : '';
+      cellsHtml += `<button type="button" class="wh-cal-day${sel}" data-d="${d}">${toFaDigits(d)}</button>`;
+    }
+
+    popup.innerHTML = `
+      <div class="wh-cal-header">
+        <button type="button" class="wh-cal-nav" data-nav="prev">ماه قبل</button>
+        <div class="wh-cal-title">${JALALI_MONTHS[jm - 1]} ${toFaDigits(jy)}</div>
+        <button type="button" class="wh-cal-nav" data-nav="next">ماه بعد</button>
+      </div>
+      <div class="wh-cal-grid">${cellsHtml}</div>
+      <div class="wh-cal-footer">
+        <button type="button" class="wh-cal-today">امروز</button>
+      </div>
+    `;
+    document.body.appendChild(popup);
+
+    const popupRect = popup.getBoundingClientRect();
+    let top = rect.bottom + 4;
+    let left = rect.left;
+    if (top + popupRect.height > window.innerHeight) top = Math.max(4, rect.top - popupRect.height - 4);
+    if (left + 220 > window.innerWidth) left = Math.max(4, window.innerWidth - 224);
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
+
+    popup.querySelector('[data-nav="prev"]').addEventListener('click', () => navigateJalaliCalendar(-1));
+    popup.querySelector('[data-nav="next"]').addEventListener('click', () => navigateJalaliCalendar(1));
+    popup.querySelector('.wh-cal-today').addEventListener('click', () => {
+      const today = new Date();
+      const t = gregorianToJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+      selectJalaliDate(t.jy, t.jm, t.jd);
+    });
+    popup.querySelectorAll('.wh-cal-day').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectJalaliDate(jalCalState.jy, jalCalState.jm, parseInt(btn.dataset.d, 10));
+      });
+    });
+  }
+
+  function navigateJalaliCalendar(delta) {
+    let { jy, jm } = jalCalState;
+    jm += delta;
+    if (jm > 12) { jm = 1; jy += 1; }
+    if (jm < 1) { jm = 12; jy -= 1; }
+    jalCalState.jy = jy;
+    jalCalState.jm = jm;
+    renderJalaliCalendar();
+  }
+
+  function selectJalaliDate(jy, jm, jd) {
+    const pad = n => String(n).padStart(2, '0');
+    const value = `${toFaDigits(jy)}/${toFaDigits(pad(jm))}/${toFaDigits(pad(jd))}`;
+    const { inputEl } = jalCalState;
+    inputEl.value = value;
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+    closeJalaliCalendar();
+  }
+
+  document.addEventListener('click', ev => {
+    const inputEl = ev.target.closest('.wh-jalali-date');
+    if (inputEl) openJalaliCalendar(inputEl);
+  });
+
+
+
+  function dayKeyFromDate(d) {
+    const j = gregorianToJalali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    return j.jy * 10000 + j.jm * 100 + j.jd;
+  }
+  function dayKey(iso) { return dayKeyFromDate(new Date(iso)); }
+  function cutoffDay(n) { const d = new Date(); d.setDate(d.getDate() - n); return dayKeyFromDate(d); }
+  function docIdFor(source, day) { return source + '_' + day; }
+
+  function setTimeToNow() {
+    const now = localInputValue(new Date());
+    timeEl.value = now.date;
+    hourEl.value = now.hour;
+  }
+  function populateDatalist() {
+    $('wh-cargo-list-mahan').innerHTML = CARGO_OPTIONS.map(o => `<option value="${esc(o)}"></option>`).join('');
+  }
+
+  // ---------- لایه‌ی پایگاه داده ----------
+  // هر ردیف به یک شرکت (site) تعلق دارد. دسترسی روی سرور (توابع wh_*) بر اساس نوع کاربر اعمال می‌شود:
+  // ناظر: فقط خواندن همه‌ی شرکت‌ها | «همه‌ی شرکت‌ها»: خواندن و ثبت برای هر ۴ شرکت | «یک شرکت»: فقط شرکت خودش.
+  const writeQueues = new Map();
+  function enqueue(key, fn) {
+    const prev = writeQueues.get(key) || Promise.resolve();
+    const next = prev.catch(() => {}).then(fn);
+    writeQueues.set(key, next);
+    next.then(() => {}, () => {}).then(() => { if (writeQueues.get(key) === next) writeQueues.delete(key); });
+    return next;
+  }
+
+  function fieldsOf(e) {
+    return { plate: e.plate, vehicle: e.vehicle || '', cargoIn: e.cargoIn || null, cargoOut: e.cargoOut || null,
+             driverName: e.driverName || null, waybillNo: e.waybillNo || null,
+             entryTime: e.entryTime || null, exitTime: e.exitTime || null };
+  }
+
+  function isSupervisor() { return !!user && user.kind === 'supervisor'; }
+  function canWrite(site) {
+    if (!user || user.kind === 'supervisor') return false;
+    if (SITES.indexOf(site) === -1) return false;
+    return user.kind === 'multi' || user.company === site;
+  }
+  function canWriteCurrent() { return canWrite(curSite); }
+  function siteTitle() { return curSite === 'all' ? 'همه‌ی شرکت‌ها' : (SITE_LABEL[curSite] || ''); }
+  function userChipText() {
+    if (!user) return '—';
+    if (user.kind === 'supervisor') return user.name;
+    return user.name + ' · ' + (user.kind === 'single' ? (SITE_LABEL[user.company] || '') : KIND_LABEL[user.kind]);
+  }
+
+  // در این نسخه docId معادل «شرکتِ صاحب ردیف» است (برای تشخیص اجازه‌ی ویرایش/حذف)
+  async function upsertEntry(id, fields, prevSite) {
+    const site = prevSite || curSite;
+    if (!canWrite(site)) throw { code: 'invalid_argument', message: 'not own company' };
+    const day = dayKey(fields.entryTime || fields.exitTime);
+    const clean = fieldsOf(fields);
+    await enqueue(id, async () => {
+      const { error } = await supabase.rpc('wh_upsert_entry', {
+        p_username: user.username, p_hash: sessionHash, p_site: site, p_id: id,
+        p_plate: clean.plate, p_vehicle: clean.vehicle,
+        p_cargo_in: clean.cargoIn, p_cargo_out: clean.cargoOut,
+        p_driver_name: clean.driverName, p_waybill_no: clean.waybillNo,
+        p_entry_time: clean.entryTime, p_exit_time: clean.exitTime, p_day: day
+      });
+      if (error) throw error;
+    });
+    return site;
+  }
+
+  async function removeEntries(items) {
+    const ids = items.filter(it => canWrite(it.docId)).map(it => it.id);
+    if (!ids.length) return;
+    await enqueue('del_' + ids.join('_'), async () => {
+      const { error } = await supabase.rpc('wh_delete_entries', { p_username: user.username, p_hash: sessionHash, p_ids: ids });
+      if (error) throw error;
+    });
+  }
+
+  function fetchAndApplyLogs() {
+    if (!user || !sessionHash) return;
+    const minDay = rangeDays > 0 ? cutoffDay(rangeDays) : null;
+    supabase.rpc('wh_get_entries', { p_username: user.username, p_hash: sessionHash, p_min_day: minDay }).then(({ data, error }) => {
+      if (!user) return;
+      if (error) {
+        if (String(error.message || '').indexOf('invalid credentials') !== -1) {
+          doLogout('نام کاربری یا رمز شما تغییر کرده است؛ دوباره وارد شوید.');
+          return;
+        }
+        handleDbError(error, false);
+        return;
+      }
+      const m = new Map();
+      (data || []).forEach(r => { if (r && SITES.indexOf(r.site) !== -1) m.set(r.id, r); });
+      logs = m; logsReady = true; rebuild(); requestRender();
+    });
+  }
+
+  let logsPollTimer = null;
+  function subscribeLogs() {
+    if (unsubLogs) { unsubLogs(); unsubLogs = null; }
+    logsReady = false; logs = new Map(); rebuild();
+    fetchAndApplyLogs();
+    // به‌جای realtime مستقیم روی جدول (که برای امنیت مسدود شده)، هر چند ثانیه از طریق تابع امن به‌روزرسانی می‌گیریم.
+    if (logsPollTimer) clearInterval(logsPollTimer);
+    logsPollTimer = setInterval(fetchAndApplyLogs, 6000);
+    unsubLogs = () => { if (logsPollTimer) { clearInterval(logsPollTimer); logsPollTimer = null; } };
+  }
+
+  function rebuild() {
+    const out = [];
+    logs.forEach((v, id) => {
+      out.push({
+        id: id, site: v.site, docId: v.site, createdBy: v.created_by,
+        plate: v.plate, vehicle: v.vehicle,
+        cargoIn: v.cargo_in, cargoOut: v.cargo_out,
+        driverName: v.driver_name, waybillNo: v.waybill_no,
+        entryTime: v.entry_time, exitTime: v.exit_time
+      });
+    });
+    entries = out;
+  }
+
+  function requestRender() {
+    if (editingRowId || editingExitId || document.getElementById('wh-jalali-cal-popup')) { dirtyWhileEditing = true; return; }
+    render();
+  }
+
+  // ---------- نمایش ----------
+  function insideCount(list) { return list.filter(e => e.entryTime && !e.exitTime).length; }
+
+  function visibleEntries() {
+    const q = searchEl.value.trim().toLowerCase();
+    return entries
+      .filter(e => curSite === 'all' || e.site === curSite)
+      .filter(e => !q || [e.plate, e.vehicle, e.cargoIn, e.cargoOut, e.driverName, e.waybillNo, SITE_LABEL[e.site], e.createdBy].some(v => String(v || '').toLowerCase().includes(q)))
+      .sort((a, b) => new Date(b.entryTime || b.exitTime) - new Date(a.entryTime || a.exitTime));
+  }
+
+  function render() {
+    if (!user) return;
+    dirtyWhileEditing = false;
+    const isSup = isSupervisor();
+    selectedIds = new Set([...selectedIds].filter(id => entries.some(e => e.id === id)));
+    const list = visibleEntries();
+
+    tbody.innerHTML = '';
+    if (!logsReady) {
+      emptyEl.textContent = 'در حال دریافت اطلاعات…';
+      emptyEl.style.display = 'block';
+    } else if (!list.length) {
+      emptyEl.textContent = entries.length
+        ? 'موردی پیدا نشد.'
+        : (isSup ? 'هنوز هیچ ثبتی وجود ندارد.' : 'هنوز هیچ ثبتی وجود ندارد. اولین ورود یا خروج را از فرم بالا ثبت کنید.');
+      emptyEl.style.display = 'block';
+    } else {
+      emptyEl.style.display = 'none';
+    }
+
+    list.forEach(e => {
+      const tr = document.createElement('tr');
+      const id = esc(e.id);
+
+      if (isSup) {
+        tr.innerHTML = `
+          <td><span class="wh-chip site-${esc(e.site)}">${esc(SITE_LABEL[e.site])}</span></td>
+          <td>${esc(e.createdBy || '—')}</td>
+          <td>${e.entryTime ? esc(fmtTime(e.entryTime)) : '—'}</td>
+          <td>${e.exitTime ? esc(fmtTime(e.exitTime)) : '<span class="wh-chip in">داخل انبار</span>'}</td>
+          <td>${esc(e.vehicle || '—')}</td>
+          <td class="wh-plate">${esc(e.plate)}</td>
+          <td>${esc(e.driverName || '—')}</td>
+          <td>${esc(e.waybillNo || '—')}</td>
+          <td>${esc(e.cargoIn || '—')}</td>
+          <td>${esc(e.cargoOut || '—')}</td>
+        `;
+        tbody.appendChild(tr);
+        return;
+      }
+
+      if (editingRowId === e.id) {
+        tr.classList.add('wh-row-editing');
+        const p = pendingEdit[e.id];
+        tr.innerHTML = `
+          <td class="wh-check-col"></td>
+          <td>
+            <div class="wh-edit-stack">
+              <input type="text" class="wh-edit-entry-date wh-jalali-date" data-id="${id}" value="${esc(p.entryDate)}" readonly>
+              <input type="time" class="wh-edit-entry-hour" data-id="${id}" value="${esc(p.entryHour)}" step="60">
+            </div>
+          </td>
+          <td>
+            <div class="wh-edit-stack">
+              <input type="text" class="wh-edit-exit-date wh-jalali-date" data-id="${id}" value="${esc(p.exitDate)}" readonly>
+              <input type="time" class="wh-edit-exit-hour" data-id="${id}" value="${esc(p.exitHour)}" step="60">
+            </div>
+          </td>
+          <td><input type="text" class="wh-edit-vehicle" data-id="${id}" value="${esc(p.vehicle)}"></td>
+          <td><input type="text" class="wh-edit-plate" data-id="${id}" value="${esc(p.plate)}"></td>
+          <td><input type="text" class="wh-edit-driver" data-id="${id}" value="${esc(p.driverName)}"></td>
+          <td><input type="text" class="wh-edit-waybill" data-id="${id}" value="${esc(p.waybillNo)}"></td>
+          <td><input type="text" class="wh-edit-cargo-in" data-id="${id}" list="wh-cargo-list-mahan" value="${esc(p.cargoIn)}" autocomplete="off"></td>
+          <td><input type="text" class="wh-edit-cargo-out" data-id="${id}" list="wh-cargo-list-mahan" value="${esc(p.cargoOut)}" autocomplete="off"></td>
+          <td>
+            <div class="wh-row-actions">
+              <button class="wh-edit-confirm" data-id="${id}" title="ذخیره">✓</button>
+              <button class="wh-edit-cancel" data-id="${id}" title="انصراف">✕</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+        return;
+      }
+
+      let exitCell;
+      if (e.exitTime) {
+        exitCell = esc(fmtTime(e.exitTime));
+      } else if (editingExitId === e.id) {
+        const pending = pendingExit[e.id] || localInputValue(new Date());
+        exitCell = `
+          <div class="wh-exit-editor">
+            <input type="text" class="wh-exit-date wh-jalali-date" data-id="${id}" value="${esc(pending.date)}" readonly>
+            <input type="time" class="wh-exit-hour" data-id="${id}" value="${esc(pending.hour)}" step="60">
+            <input type="text" class="wh-exit-cargo" data-id="${id}" list="wh-cargo-list-mahan" value="${esc(pending.cargo || '')}" autocomplete="off">
+            <button class="wh-exit-confirm" data-id="${id}" title="ثبت خروج">✓</button>
+            <button class="wh-exit-cancel" data-id="${id}" title="انصراف">✕</button>
+          </div>
+        `;
+      } else {
+        exitCell = `<button class="wh-exit-btn" data-id="${id}">ثبت خروج</button>`;
+      }
+
+      tr.innerHTML = `
+        <td class="wh-check-col"><input type="checkbox" class="wh-row-check" data-id="${id}" ${selectedIds.has(e.id) ? 'checked' : ''}></td>
+        <td>${e.entryTime ? esc(fmtTime(e.entryTime)) : '—'}</td>
+        <td>${exitCell}</td>
+        <td>${esc(e.vehicle || '—')}</td>
+        <td class="wh-plate">${esc(e.plate)}</td>
+        <td>${esc(e.driverName || '—')}</td>
+        <td>${esc(e.waybillNo || '—')}</td>
+        <td>${esc(e.cargoIn || '—')}</td>
+        <td>${esc(e.cargoOut || '—')}</td>
+        <td>
+          <div class="wh-row-actions">
+            <button class="wh-edit-btn" data-id="${id}" title="ویرایش">✎</button>
+            <button class="wh-del" data-id="${id}" title="حذف">✕</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    if (isSup) {
+      $('wh-statgrid').innerHTML = SITES.map(s => {
+        const l = entries.filter(e => e.site === s);
+        return `<div class="wh-statcard"><span class="wh-chip site-${s}">${esc(SITE_LABEL[s])}</span><b>${fa(insideCount(l))}</b><small>داخل انبار · کل ثبت‌ها: ${fa(l.length)}</small></div>`;
+      }).join('');
+    } else {
+      insideCountEl.textContent = fa(insideCount(entries.filter(e => e.site === curSite))) + ' دستگاه';
+      selectAllEl.checked = list.length > 0 && list.every(e => selectedIds.has(e.id));
+      selectAllEl.indeterminate = !selectAllEl.checked && list.some(e => selectedIds.has(e.id));
+      selCountEl.textContent = fa(selectedIds.size);
+      delSelBtn.disabled = selectedIds.size === 0;
+    }
+  }
+
+  function buildSiteToggle() {
+    const items = (user.kind === 'supervisor' ? ['all'] : []).concat(SITES);
+    $('wh-site-toggle').innerHTML = items.map(s =>
+      `<button type="button" data-site="${s}" class="${s === curSite ? 'active' : ''}">${s === 'all' ? 'همه' : esc(SITE_LABEL[s])}</button>`
+    ).join('');
+  }
+
+  function updateSiteHeader() {
+    const sup = isSupervisor();
+    $('wh-app-title').innerHTML = (sup ? 'بررسی' : 'ثبت') + ' <span>ورود و خروج</span> بار – ' + esc(siteTitle());
+    $('wh-form-site').textContent = SITE_LABEL[curSite] || '';
+    $('wh-note').textContent = sup
+      ? 'شما ناظر هستید: ثبت‌های همه‌ی شرکت‌ها را می‌بینید و امکان ثبت یا ویرایش ندارید.'
+      : 'اطلاعات در پایگاه داده‌ی مشترک ذخیره می‌شود و از هر دستگاهی که با همین کاربر وارد شوید یکسان است. برای پشتیبان‌گیری از دکمه‌ی «خروجی اکسل» استفاده کنید.';
+  }
+
+  function enterApp() {
+    const sup = user.kind === 'supervisor';
+    const app = $('wh-screen-app');
+    app.classList.toggle('is-supervisor', sup);
+    app.classList.toggle('is-multi', user.kind === 'multi');
+    app.classList.toggle('is-single', user.kind === 'single');
+    $('wh-manage-pw').hidden = !sup;
+    $('wh-user-role').textContent = userChipText();
+    if (!curSite) curSite = pickedSite;
+    buildSiteToggle();
+    updateSiteHeader();
+    searchEl.value = '';
+    selectedIds.clear(); editingExitId = null; editingRowId = null;
+    if (!sup && dataWriteFlag === false) {
+      showBanner('دسترسی شما فقط مشاهده است و امکان ثبت اطلاعات ندارید.');
+      submitBtn.disabled = true;
+    } else {
+      showBanner('');
+      submitBtn.disabled = false;
+    }
+    setTimeToNow();
+    showScreen('app');
+    subscribeLogs();
+    render();
+  }
+
+  // ---------- ویرایش ردیف ----------
+  function startRowEdit(id) {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    const entryDT = entry.entryTime ? localInputValue(new Date(entry.entryTime)) : { date: '', hour: '' };
+    const exitDT = entry.exitTime ? localInputValue(new Date(entry.exitTime)) : { date: '', hour: '' };
+    pendingEdit[id] = {
+      entryDate: entryDT.date, entryHour: entryDT.hour,
+      exitDate: exitDT.date, exitHour: exitDT.hour,
+      vehicle: entry.vehicle || '', plate: entry.plate || '',
+      driverName: entry.driverName || '', waybillNo: entry.waybillNo || '',
+      cargoIn: entry.cargoIn || '', cargoOut: entry.cargoOut || ''
+    };
+    editingRowId = id;
+    editingExitId = null;
+    delete pendingExit[id];
+    render();
+  }
+
+  function cancelRowEdit(id) {
+    delete pendingEdit[id];
+    editingRowId = null;
+    render();
+  }
+
+  async function confirmRowEdit(id) {
+    const p = pendingEdit[id];
+    const entry = entries.find(e => e.id === id);
+    if (!p || !entry) return;
+
+    const plate = p.plate.trim();
+    if (!plate) { await uiAlert('پلاک نمی‌تواند خالی باشد.'); return; }
+    if (!p.entryDate && !p.exitDate) { await uiAlert('حداقل یکی از تاریخ‌های ورود یا خروج باید مشخص باشد.'); return; }
+
+    const entryIso = p.entryDate ? jalaliStrToISODate(p.entryDate) : null;
+    const exitIso = p.exitDate ? jalaliStrToISODate(p.exitDate) : null;
+    const entryTime = entryIso ? new Date(`${entryIso}T${p.entryHour || '00:00'}`) : null;
+    const exitTime = exitIso ? new Date(`${exitIso}T${p.exitHour || '00:00'}`) : null;
+    if ((entryTime && isNaN(entryTime)) || (exitTime && isNaN(exitTime)) || (!entryTime && !exitTime)) {
+      await uiAlert('تاریخ یا ساعت واردشده معتبر نیست.'); return;
+    }
+
+    const updated = {
+      plate: plate,
+      vehicle: p.vehicle.trim(),
+      driverName: p.driverName.trim() || null,
+      waybillNo: p.waybillNo.trim() || null,
+      cargoIn: p.cargoIn.trim() || null,
+      cargoOut: p.cargoOut.trim() || null,
+      entryTime: entryTime ? entryTime.toISOString() : null,
+      exitTime: exitTime ? exitTime.toISOString() : null
+    };
+    try {
+      await upsertEntry(id, updated, entry.docId);
+    } catch (err) {
+      console.error(err);
+      await uiAlert(writeErrMsg(err));
+      return;
+    }
+    delete pendingEdit[id];
+    editingRowId = null;
+    render();
+  }
+
+  // ---------- فرم ثبت ----------
+  document.querySelectorAll('#wh-dir-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#wh-dir-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentDir = btn.dataset.dir;
+    });
+  });
+
+  function newId() { return 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
+
+  function findOpenTrip(plate) {
+    let best = null;
+    entries.forEach(e => {
+      if (e.site === curSite && e.plate === plate && e.entryTime && !e.exitTime) {
+        if (!best || new Date(e.entryTime) > new Date(best.entryTime)) best = e;
+      }
+    });
+    return best;
+  }
+
+  submitBtn.addEventListener('click', async () => {
+    if (!canWriteCurrent()) return;
+    const plate = plateEl.value.trim();
+    if (!plate) { plateEl.focus(); return; }
+
+    const submittedIsoDate = timeEl.value ? jalaliStrToISODate(timeEl.value) : null;
+    const chosenTime = submittedIsoDate ? new Date(`${submittedIsoDate}T${hourEl.value || '00:00'}`) : new Date();
+    if (isNaN(chosenTime)) { await uiAlert('تاریخ یا ساعت واردشده معتبر نیست.'); return; }
+    const iso = chosenTime.toISOString();
+    const vehicle = vehicleEl.value.trim();
+    const cargoIn = cargoInEl.value.trim();
+    const cargoOut = cargoOutEl.value.trim();
+    const driver = driverEl.value.trim();
+    const waybill = waybillEl.value.trim();
+
+    submitBtn.disabled = true;
+    try {
+      if (currentDir === 'in') {
+        await upsertEntry(newId(), { plate: plate, vehicle: vehicle, cargoIn: cargoIn || null, cargoOut: cargoOut || null, driverName: driver || null, waybillNo: waybill || null, entryTime: iso, exitTime: null });
+      } else {
+        const open = findOpenTrip(plate);
+        if (open) {
+          const f = fieldsOf(open);
+          f.exitTime = iso;
+          if (vehicle) f.vehicle = vehicle;
+          if (cargoOut) f.cargoOut = cargoOut;
+          if (driver) f.driverName = driver;
+          if (waybill) f.waybillNo = waybill;
+          await upsertEntry(open.id, f, open.docId);
+        } else {
+          await upsertEntry(newId(), { plate: plate, vehicle: vehicle, cargoIn: cargoIn || null, cargoOut: cargoOut || null, driverName: driver || null, waybillNo: waybill || null, entryTime: null, exitTime: iso });
+        }
+      }
+      plateEl.value = ''; vehicleEl.value = ''; cargoInEl.value = ''; cargoOutEl.value = ''; driverEl.value = ''; waybillEl.value = '';
+      plateEl.focus();
+    } catch (err) {
+      console.error(err);
+      await uiAlert(writeErrMsg(err));
+    } finally {
+      submitBtn.disabled = (dataWriteFlag === false);
+    }
+  });
+
+  const tabOrder = [timeEl, vehicleEl, plateEl, driverEl, waybillEl, hourEl, cargoInEl, cargoOutEl];
+  tabOrder.forEach((el, idx) => {
+    el.addEventListener('keydown', ev => {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      const next = tabOrder[idx + 1] || submitBtn;
+      next.focus();
+    });
+  });
+
+  // ---------- فیلتر و جستجو ----------
+  searchEl.addEventListener('input', render);
+  $('wh-site-toggle').addEventListener('click', ev => {
+    const btn = ev.target.closest('button[data-site]');
+    if (!btn || !user) return;
+    curSite = btn.dataset.site;
+    document.querySelectorAll('#wh-site-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+    editingExitId = null; editingRowId = null; selectedIds.clear();
+    updateSiteHeader();
+    render();
+  });
+  rangeEl.addEventListener('change', () => {
+    rangeDays = parseInt(rangeEl.value, 10) || 0;
+    if (user) subscribeLogs();
+  });
+
+  selectAllEl.addEventListener('change', () => {
+    const list = visibleEntries();
+    if (selectAllEl.checked) list.forEach(e => selectedIds.add(e.id));
+    else list.forEach(e => selectedIds.delete(e.id));
+    render();
+  });
+
+  delSelBtn.addEventListener('click', async () => {
+    if (isSupervisor() || selectedIds.size === 0) return;
+    const chosen = entries.filter(e => selectedIds.has(e.id));
+    const openCount = chosen.filter(e => e.entryTime && !e.exitTime).length;
+    const baseMsg = `آیا از حذف ${fa(selectedIds.size)} ردیف انتخاب‌شده مطمئن هستید؟`;
+    const msg = openCount > 0
+      ? `⚠️ ${fa(openCount)} مورد از این ردیف‌ها هنوز ثبت خروج نخورده‌اند و اطلاعاتشان برای همیشه از بین می‌رود.\n${baseMsg}`
+      : baseMsg;
+    if (!(await uiConfirm(msg, true, 'حذف'))) return;
+    try {
+      await removeEntries(chosen.map(e => ({ id: e.id, docId: e.docId })));
+      selectedIds.clear();
+    } catch (err) {
+      console.error(err);
+      await uiAlert(writeErrMsg(err));
+    }
+    render();
+  });
+
+  // ---------- کلیک‌ها و ورودی‌های جدول ----------
+  tbody.addEventListener('change', ev => {
+    const checkEl = ev.target.closest('.wh-row-check');
+    if (checkEl) {
+      if (checkEl.checked) selectedIds.add(checkEl.dataset.id);
+      else selectedIds.delete(checkEl.dataset.id);
+      render();
+      return;
+    }
+    const cargoInSel = ev.target.closest('.wh-edit-cargo-in');
+    if (cargoInSel) { const id = cargoInSel.dataset.id; if (id && pendingEdit[id]) pendingEdit[id].cargoIn = cargoInSel.value; return; }
+    const cargoOutSel = ev.target.closest('.wh-edit-cargo-out');
+    if (cargoOutSel) { const id = cargoOutSel.dataset.id; if (id && pendingEdit[id]) pendingEdit[id].cargoOut = cargoOutSel.value; return; }
+    const exitCargoSel = ev.target.closest('.wh-exit-cargo');
+    if (exitCargoSel) {
+      const id = exitCargoSel.dataset.id;
+      if (!id) return;
+      if (!pendingExit[id]) pendingExit[id] = localInputValue(new Date());
+      pendingExit[id].cargo = exitCargoSel.value;
+    }
+  });
+
+  tbody.addEventListener('click', async ev => {
+    if (isSupervisor()) return;
+
+    const delBtn = ev.target.closest('.wh-del');
+    if (delBtn) {
+      const t = entries.find(e => e.id === delBtn.dataset.id);
+      if (!t) return;
+      const isOpen = t.entryTime && !t.exitTime;
+      const msg = isOpen
+        ? `⚠️ خودروی «${t.plate}» هنوز ثبت خروج نخورده است. حذف این ردیف باعث می‌شود اطلاعات ورودش برای همیشه از بین برود. آیا مطمئن هستید؟`
+        : `آیا از حذف ردیف «${t.plate}» مطمئن هستید؟`;
+      if (!(await uiConfirm(msg, true, 'حذف'))) return;
+      try {
+        await removeEntries([{ id: t.id, docId: t.docId }]);
+        selectedIds.delete(t.id);
+      } catch (err) {
+        console.error(err);
+        await uiAlert(writeErrMsg(err));
+      }
+      render();
+      return;
+    }
+
+    const editBtn = ev.target.closest('.wh-edit-btn');
+    if (editBtn) { startRowEdit(editBtn.dataset.id); return; }
+
+    const editCancelBtn = ev.target.closest('.wh-edit-cancel');
+    if (editCancelBtn) { cancelRowEdit(editCancelBtn.dataset.id); return; }
+
+    const editConfirmBtn = ev.target.closest('.wh-edit-confirm');
+    if (editConfirmBtn) { await confirmRowEdit(editConfirmBtn.dataset.id); return; }
+
+    const exitBtn = ev.target.closest('.wh-exit-btn');
+    if (exitBtn) {
+      editingExitId = exitBtn.dataset.id;
+      const entry = entries.find(e => e.id === editingExitId);
+      const now = localInputValue(new Date());
+      if (entry && entry.entryTime) {
+        pendingExit[editingExitId] = { date: localInputValue(new Date(entry.entryTime)).date, hour: now.hour };
+      } else {
+        pendingExit[editingExitId] = now;
+      }
+      render();
+      return;
+    }
+
+    const cancelBtn = ev.target.closest('.wh-exit-cancel');
+    if (cancelBtn) {
+      delete pendingExit[cancelBtn.dataset.id];
+      editingExitId = null;
+      render();
+      return;
+    }
+
+    const confirmBtn = ev.target.closest('.wh-exit-confirm');
+    if (confirmBtn) {
+      const id = confirmBtn.dataset.id;
+      const entry = entries.find(e => e.id === id);
+      if (!entry) return;
+      const pending = pendingExit[id] || localInputValue(new Date());
+      const exitIsoPart = jalaliStrToISODate(pending.date) || todayISODatePart();
+      const chosen = new Date(`${exitIsoPart}T${pending.hour || '00:00'}`);
+      if (isNaN(chosen)) { await uiAlert('تاریخ یا ساعت خروج معتبر نیست.'); return; }
+      const f = fieldsOf(entry);
+      f.exitTime = chosen.toISOString();
+      if (pending.cargo) f.cargoOut = pending.cargo;
+      try {
+        await upsertEntry(id, f, entry.docId);
+      } catch (err) {
+        console.error(err);
+        await uiAlert(writeErrMsg(err));
+        return;
+      }
+      delete pendingExit[id];
+      editingExitId = null;
+      render();
+    }
+  });
+
+  tbody.addEventListener('input', ev => {
+    const dateInput = ev.target.closest('.wh-exit-date');
+    const hourInput = ev.target.closest('.wh-exit-hour');
+    const cargoInput = ev.target.closest('.wh-exit-cargo');
+    const src = dateInput || hourInput || cargoInput;
+    if (src) {
+      const id = src.dataset.id;
+      if (!pendingExit[id]) pendingExit[id] = localInputValue(new Date());
+      if (dateInput) pendingExit[id].date = dateInput.value;
+      if (hourInput) pendingExit[id].hour = hourInput.value;
+      if (cargoInput) pendingExit[id].cargo = cargoInput.value;
+      return;
+    }
+    const target = ev.target;
+    const editId = target.dataset && target.dataset.id;
+    if (!editId || !pendingEdit[editId]) return;
+    const p = pendingEdit[editId];
+    if (target.classList.contains('wh-edit-entry-date')) p.entryDate = target.value;
+    else if (target.classList.contains('wh-edit-entry-hour')) p.entryHour = target.value;
+    else if (target.classList.contains('wh-edit-exit-date')) p.exitDate = target.value;
+    else if (target.classList.contains('wh-edit-exit-hour')) p.exitHour = target.value;
+    else if (target.classList.contains('wh-edit-vehicle')) p.vehicle = target.value;
+    else if (target.classList.contains('wh-edit-plate')) p.plate = target.value;
+    else if (target.classList.contains('wh-edit-driver')) p.driverName = target.value;
+    else if (target.classList.contains('wh-edit-waybill')) p.waybillNo = target.value;
+    else if (target.classList.contains('wh-edit-cargo-in')) p.cargoIn = target.value;
+    else if (target.classList.contains('wh-edit-cargo-out')) p.cargoOut = target.value;
+  });
+
+  // ---------- خروجی اکسل ----------
+  function buildSheetRows(list) {
+    const header = ['شرکت', 'ثبت‌کننده', 'ورود', 'خروج', 'نوع ماشین', 'پلاک', 'نام راننده', 'شماره بارنامه', 'بار ورود', 'بار خروج'];
+    const rows = list.slice()
+      .sort((a, b) => new Date(b.entryTime || b.exitTime) - new Date(a.entryTime || a.exitTime))
+      .map(e => [
+        SITE_LABEL[e.site] || '',
+        e.createdBy || '',
+        e.entryTime ? fmtTime(e.entryTime) : '',
+        e.exitTime ? fmtTime(e.exitTime) : '',
+        e.vehicle || '', e.plate || '', e.driverName || '', e.waybillNo || '', e.cargoIn || '', e.cargoOut || ''
+      ]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    ws['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 20 }];
+    return ws;
+  }
+
+  function exportFileName() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const j = gregorianToJalali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    return `ثبت-ورود-خروج-بار-${siteTitle().replace(/\s+/g, '-')}-${j.jy}-${pad(j.jm)}-${pad(j.jd)}_${pad(now.getHours())}-${pad(now.getMinutes())}.xlsx`;
+  }
+
+  $('wh-export').addEventListener('click', async () => {
+    if (typeof XLSX === 'undefined') { await uiAlert('کتابخانه‌ی اکسل بارگذاری نشده است. اتصال اینترنت را بررسی کنید.'); return; }
+    const src = curSite === 'all' ? entries : entries.filter(e => e.site === curSite);
+    const wb = XLSX.utils.book_new();
+    wb.Workbook = { Views: [{ RTL: true }] };
+    XLSX.utils.book_append_sheet(wb, buildSheetRows(src), curSite === 'all' ? 'همه' : SITE_LABEL[curSite]);
+    if (curSite === 'all') {
+      SITES.forEach(s => XLSX.utils.book_append_sheet(wb, buildSheetRows(src.filter(e => e.site === s)), SITE_LABEL[s]));
+    }
+    let data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    if (!(data instanceof ArrayBuffer) && !ArrayBuffer.isView(data)) data = new Uint8Array(data);
+    try {
+      const blob = new Blob([data], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = exportFileName();
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      console.error(err); await uiAlert('ذخیره‌ی فایل ممکن نشد.');
+    }
+  });
+
+  // ---------- شروع ----------
+  async function init() {
+    populateDatalist();
+    showScreen('loading');
+    if (!supabase) {
+      dbState = 'unavailable';
+      dbErrorText = 'اتصال به پایگاه داده Supabase برقرار نشد. آدرس پروژه و کلید anon را در فایل تنظیم کنید.';
+      route(); return;
+    }
+    dbState = 'ready';
+    try {
+      const { data, error } = await supabase.rpc('wh_check_setup');
+      if (error) throw error;
+      setupDone = !!data;
+    } catch (e) {
+      console.error(e);
+      dbState = 'unavailable';
+      dbErrorText = 'اتصال به پایگاه داده برقرار نشد. لطفاً دوباره تلاش کنید.';
+    }
+    route();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
